@@ -6,9 +6,7 @@ from molmass import Formula
 import pdb as pdb
 import pickle as pickle
 
-def line_ids_from_flux_calculator(flux_calculator_output):
-    line_id_dict=pickle.load(open('line_id_dict.p','rb'))
-
+def line_ids_from_flux_calculator(flux_calculator_output, line_id_dict):
     line_id_list=[]
     for i,myrow in enumerate(flux_calculator_output):
         line_id_key=(str(myrow['molec_id'])+str(myrow['local_iso_id']) + str(myrow['Vp_HITRAN'])+str(myrow['Vpp_HITRAN'])+ str(myrow['Qp_HITRAN'])+str(myrow['Qpp_HITRAN'])).replace(" ","")

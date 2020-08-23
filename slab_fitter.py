@@ -11,41 +11,69 @@ import urllib
 import pandas as pd
 from astropy.convolution import Gaussian1DKernel, convolve
 
+class sf_run():
+    def __init__(self,data,hitran_data):
+        hitran_dict=get_hitran_from_flux_calculator(data,hitran_data)
+        self.qdata=hitran_dict['qdata']
+        self.line_ids=hitran_dict['line_ids']
+        
+        self.wn0=hitran_data['wn'][self.line_ids]*1e2 # now m-1
+        self.aup=hitran_data['a'][self.line_ids]
+        self.eup=(hitran_data['elower'][self.line_ids]+hitran_data['wn'][self.line_ids])*1e2 #now m-1
+        self.gup=hitran_data['gp'][self.line_ids]
+        self.eup_k=hitran_data['eup_k'][self.line_ids]
+        self.elower=hitran_data['elower'][self.line_ids]
+
 #------------------------------------------------------------------------------------                                     
-def compute_fluxes(line_ids,logn,temp,omega):
+def get_hitran_from_flux_calculator(data,hitran_data):
+
+    #Define line_id_dictionary using hitran_data
+    line_id_dict={}
+    for i,myrow in enumerate(hitran_data):
+        line_id_key=(str(myrow['molec_id'])+str(myrow['local_iso_id']) + str(myrow['Vp'])+str(myrow['Vpp'])+ str(myrow['Qp'])+str(myrow['Qpp'])).replace(" ","")
+        line_id_dict[line_id_key]=i
+
+    #Get a set of line_ids using hitran_data and actual data
+    line_ids=line_ids_from_flux_calculator(data, line_id_dict)
+
+    #Get appropriate partition function data (will need to fix to account for isotopologues, possibly different molecules)
+    qdata = pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
+
+    hitran_dict={'qdata':qdata,'line_ids':line_ids,'hitran_data':hitran_data}
+
+    return hitran_dict
+
+#------------------------------------------------------------------------------------                                     
+def compute_fluxes(myrun,logn,temp,omega):
     '''
     Compute line fluxes for a slab model with given column density, temperature, and solid angle=area/d^2 
     '''
     n_col=10**logn
-
     isot=1   #Will need to fix later
     si2jy=1e26   #SI to Jy flux conversion factor
 
 #If local velocity field is not given, assume sigma given by thermal velocity
 #Will eventually need to account for isotopologues
-
     mu=u.value*28.01  #12CO
     deltav=np.sqrt(k_B.value*temp/mu)   #m/s 
 
-#Read HITRAN data
-    hitran_data=extract_hitran_data('CO',4.5,5.2,isotopologue_number=isot)
-
 #Use line_ids to extract relevant HITRAN data
-    wn0=hitran_data['wn'][line_ids]*1e2 # now m-1
-    aup=hitran_data['a'][line_ids]
-    eup=(hitran_data['elower'][line_ids]+hitran_data['wn'][line_ids])*1e2 #now m-1
-    gup=hitran_data['gp'][line_ids]
+    wn0=myrun.wn0
+    aup=myrun.aup
+    eup=myrun.eup
+    gup=myrun.gup
+    eup_k=myrun.eup_k
+    elower=myrun.elower 
 
-#Compute partition function - will want to write local version of this.
-    q=compute_partition_function('CO',temp,isot)
-
+#Compute partition function - will need to address isot
+    q=compute_partition_function_co(temp,myrun.qdata)
 #Begin calculations                                                                                                       
     afactor=((aup*gup*n_col)/(q*8.*np.pi*(wn0)**3.)) #mks                                                                 
     efactor=h.value*c.value*eup/(k_B.value*temp)
     wnfactor=h.value*c.value*wn0/(k_B.value*temp)
     phia=1./(deltav*np.sqrt(2.0*np.pi))
-    efactor2=hitran_data['eup_k'][line_ids]/temp
-    efactor1=hitran_data['elower'][line_ids]*1.e2*h.value*c.value/k_B.value/temp
+    efactor2=eup_k/temp
+    efactor1=elower*1.e2*h.value*c.value/k_B.value/temp
     tau0=afactor*(np.exp(-1.*efactor1)-np.exp(-1.*efactor2))*phia  #Avoids numerical issues at low T
 
     w0=1.e6/wn0
@@ -54,27 +82,24 @@ def compute_fluxes(line_ids,logn,temp,omega):
     nvel=1001
     vel=(dvel*(np.arange(0,nvel)-500.0))*1.e3     #now in m/s   
 
-    fthin=aup*gup*n_col*h.value*c.value*wn0/(q*4.*np.pi)*np.exp(-efactor)*omega # Energy/area/time, mks                   
-#Now loop over transitions and velocities to calculate flux                                                               
-    nlines=np.size(tau0)
-    tau=np.zeros([nlines,nvel])
-    wave=np.zeros([nlines,nvel])
-    for ha,mytau in enumerate(tau0):
-        for ka, myvel in enumerate(vel):
-            tau[ha,ka]=tau0[ha]*np.exp(-vel[ka]**2./(2.*deltav**2.))
+#Now loop over transitions and velocities to calculate flux
+    tau=np.exp(-vel**2./(2.*deltav**2.))*np.vstack(tau0)
 
-#Now interpolate over wavelength space so that all lines can be added together                                            
-    w_arr=wave            #nlines x nvel                                                                                  
-    f_arr=w_arr-w_arr     #nlines x nvel                                                                                  
 #Create array to hold line fluxes (one flux value per line)
+    nlines=np.size(tau0)
+    f_arr=np.zeros([nlines,nvel])     #nlines x nvel       
     lineflux=np.zeros(nlines)
-    for i in range(nlines):
+
+    for i in range(nlines):  #I might still be able to get rid of this loop
         f_arr[i,:]=2*h.value*c.value*wn0[i]**3./(np.exp(wnfactor[i])-1.0e0)*(1-np.exp(-tau[i,:]))*si2jy*omega
         lineflux_jykms=np.sum(f_arr[i,:])*dvel
         lineflux[i]=lineflux_jykms*1e-26*1.*1e5*(1./(w0[i]*1e-4))    #mks
 
     return lineflux
 
+def compute_partition_function_co(temp,qdata,isotopologue_number=1):
+    q=np.interp(temp,qdata['temp'],qdata['q'])  
+    return q
 
 def compute_partition_function(molecule_name,temp,isotopologue_number=1):
     '''                                                                                                                                       

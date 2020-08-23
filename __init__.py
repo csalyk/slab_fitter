@@ -1,3 +1,3 @@
 from .helpers import extract_hitran_data,line_ids_from_hitran,line_ids_from_flux_calculator, get_global_identifier
-from .slab_fitter import compute_fluxes, make_rotation_diagram
+from .slab_fitter import compute_fluxes, make_rotation_diagram, compute_partition_function, compute_partition_function_co,get_hitran_from_flux_calculator, sf_run
 
