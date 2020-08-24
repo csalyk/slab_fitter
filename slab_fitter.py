@@ -12,18 +12,20 @@ import pandas as pd
 from astropy.convolution import Gaussian1DKernel, convolve
 
 class sf_run():
-    def __init__(self,data,hitran_data):
-        hitran_dict=get_hitran_from_flux_calculator(data,hitran_data)
-        self.qdata=hitran_dict['qdata']
-        self.line_ids=hitran_dict['line_ids']
+    def __init__(self,data):
         
-        self.wn0=hitran_data['wn'][self.line_ids]*1e2 # now m-1
-        self.aup=hitran_data['a'][self.line_ids]
-        self.eup=(hitran_data['elower'][self.line_ids]+hitran_data['wn'][self.line_ids])*1e2 #now m-1
-        self.gup=hitran_data['gp'][self.line_ids]
-        self.eup_k=hitran_data['eup_k'][self.line_ids]
-        self.elower=hitran_data['elower'][self.line_ids]
+        #will want to modify following for isotopologues, other molecules.  probably its own function.
+        self.qdata=pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
 
+        self.wn0=data['wn']*1e2 # now m-1
+        self.aup=data['a']
+        self.eup=(data['elower']+data['wn'])*1e2 #now m-1
+        self.gup=data['gup']
+        self.eup_k=data['eup_k']
+        self.elower=data['elower']
+
+        self.lineflux=data['lineflux']
+        self.lineflux_err=data['lineflux_err']
 #------------------------------------------------------------------------------------                                     
 def get_hitran_from_flux_calculator(data,hitran_data):
 
@@ -65,7 +67,7 @@ def compute_fluxes(myrun,logn,temp,omega):
     eup_k=myrun.eup_k
     elower=myrun.elower 
 
-#Compute partition function - will need to address isot
+#Compute partition function - will need to address isotopes/different molecules later
     q=compute_partition_function_co(temp,myrun.qdata)
 #Begin calculations                                                                                                       
     afactor=((aup*gup*n_col)/(q*8.*np.pi*(wn0)**3.)) #mks                                                                 
