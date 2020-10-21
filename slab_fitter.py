@@ -128,8 +128,9 @@ def compute_fluxes(myrun,logn,temp,omega):
     eup_k=myrun.eup_k
     elower=myrun.elower 
 
-#Compute partition function - will need to address isotopes/different molecules later
-    q=compute_partition_function_co(temp,myrun.qdata)
+# Get partition function at temp for each line
+    q=get_qdata(myrun, temp)
+    
 #Begin calculations                                                                                                       
     afactor=((aup*gup*n_col)/(q*8.*np.pi*(wn0)**3.)) #mks                                                                 
     efactor=h.value*c.value*eup/(k_B.value*temp)
@@ -204,8 +205,7 @@ def compute_partition_function(molecule_name,temp,isotopologue_number=1):
 #    if not os.path.exists(qfilename):  #download data from internet
        #get https://hitran.org/data/Q/qstr(G).txt
 
-    q=np.interp(temp,qdata['temp'],qdata['q'])
-    return q
+    return qdata
 
 
 #Make this its own function
