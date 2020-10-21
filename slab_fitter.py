@@ -2,7 +2,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.constants import c,h, k_B, G, M_sun, au, pc, u
 import pickle as pickle
-from .helpers import extract_hitran_data,line_ids_from_flux_calculator,line_ids_from_hitran,get_global_identifier
+from helpers import extract_hitran_data,line_ids_from_flux_calculator,line_ids_from_hitran,get_global_identifier,translate_molecule_identifier
 import pdb as pdb
 from astropy.table import Table
 from astropy import units as un
@@ -12,20 +12,81 @@ import pandas as pd
 from astropy.convolution import Gaussian1DKernel, convolve
 
 class sf_run():
-    def __init__(self,data):
-        
-        #will want to modify following for isotopologues, other molecules.  probably its own function.
-        self.qdata=pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
+    def __init__(self,data, minwave, maxwave):
 
-        self.wn0=data['wn']*1e2 # now m-1
-        self.aup=data['a']
-        self.eup=(data['elower']+data['wn'])*1e2 #now m-1
-        self.gup=data['gup']
-        self.eup_k=data['eup_k']
-        self.elower=data['elower']
-
+        # this info is required of the user
+        # for each emission line: lineflux, lineflux_err,
+        # Molecule id, local isotopologue id, 
+        # upper and lower local quanta (Qp, Qpp),
+        # upper and lower global quanta (Vp, Vpp)
+        # each index = i of each array corresponds to the same emission line
         self.lineflux=data['lineflux']
         self.lineflux_err=data['lineflux_err']
+        self.molec_id=data['molec_id']
+        self.local_iso_id=data['local_iso_id']
+        self.qpp = data['Qpp_HITRAN']
+        self.qp = data['Qp_HITRAN']
+        self.vp = data['Vp_HITRAN']
+        self.vpp = data['Vpp_HITRAN']
+        
+        num_line = len(self.lineflux)
+
+        # identify unique isotopologues so we only have to query 
+        # hitran once per global id to get partition function
+        unique_isotopologues = list(set(zip(self.molec_id, self.local_iso_id)))
+        
+
+        # identify global id for each measurement for later reference to partition function
+        self.global_id = np.array([get_global_identifier(translate_molecule_identifier(self.molec_id[i]), \
+                                    isotopologue_number=self.local_iso_id[i])\
+                                    for i in np.arange(num_line)])
+
+
+        # collect partition function and hitran data once for each unique global id
+        
+        self.hitran_qdata = {}
+
+        for mol,iso in unique_isotopologues:
+            ident = get_global_identifier(translate_molecule_identifier(mol), isotopologue_number=iso)
+            self.hitran_qdata[ident] = {}
+            self.hitran_qdata[ident]['qdata'] = compute_partition_function(translate_molecule_identifier(mol), isotopologue_number=iso)
+            self.hitran_qdata[ident]['hitran'] = extract_hitran_data(translate_molecule_identifier(mol), minwave, maxwave, isotopologue_number=iso)
+
+        # add correct corresponding hitran info to arrays
+        
+        # initialize empty arrays. each index corresponds to the 
+        # emission line at the same index
+        self.wn0 = np.zeros(num_line, dtype=float)*np.nan
+        self.aup = np.zeros(num_line, dtype=float)*np.nan
+        self.eup = np.zeros(num_line, dtype=float)*np.nan
+        self.gup = np.zeros(num_line, dtype=float)*np.nan
+        self.eup_k = np.zeros(num_line, dtype=float)*np.nan
+        self.elower = np.zeros(num_line, dtype=float)*np.nan
+        
+        # assign values for each emission line
+        for i in np.arange(num_line):
+            
+            # hd = hitran data for isotopologue
+            hd = self.hitran_qdata[self.global_id[i]]['hitran']
+
+            # correctLine checks each field
+            correctLine = (self.molec_id[i] == hd['molec_id']) & \
+                          (self.local_iso_id[i] == hd['local_iso_id']) & \
+                          (self.qpp[i] ==hd['Qpp']) & \
+                          (self.qp[i] == hd['Qp']) & \
+                          (self.vp[i] == hd['Vp']) & \
+                          (self.vpp[i] == hd['Vpp'])
+            index = [j for j, x in enumerate(correctLine) if x][0]
+
+            h = hd[index]
+            
+            self.wn0[i]=h['wn']*1e2 # now m-1
+            self.aup[i]=h['a']
+            self.eup[i]=(h['elower']+self.wn0[i])*1e2 #now m-1
+            self.gup[i]=h['gp']
+            self.eup_k[i]=h['eup_k']
+            self.elower[i]=h['elower']
+
 #------------------------------------------------------------------------------------                                     
 def get_hitran_from_flux_calculator(data,hitran_data):
 
@@ -67,8 +128,9 @@ def compute_fluxes(myrun,logn,temp,omega):
     eup_k=myrun.eup_k
     elower=myrun.elower 
 
-#Compute partition function - will need to address isotopes/different molecules later
-    q=compute_partition_function_co(temp,myrun.qdata)
+# Get partition function at temp for each line
+    q=get_qdata(myrun, temp)
+    
 #Begin calculations                                                                                                       
     afactor=((aup*gup*n_col)/(q*8.*np.pi*(wn0)**3.)) #mks                                                                 
     efactor=h.value*c.value*eup/(k_B.value*temp)
@@ -99,11 +161,22 @@ def compute_fluxes(myrun,logn,temp,omega):
 
     return lineflux
 
+# Defining get_qdata to interpolate for each emission line the partition function at temp
+def get_qdata(myrun, temp):
+    qdata = np.zeros(len(myrun.lineflux)) * np.nan
+
+    for i in np.arange(len(myrun.lineflux)):
+        qdata[i] = np.interp(temp, \
+                myrun.hitran_qdata[myrun.global_id[i]]['qdata']['temp'], \
+                myrun.hitran_qdata[myrun.global_id[i]]['qdata']['q'])
+
+    return qdata
+
 def compute_partition_function_co(temp,qdata,isotopologue_number=1):
     q=np.interp(temp,qdata['temp'],qdata['q'])  
     return q
 
-def compute_partition_function(molecule_name,temp,isotopologue_number=1):
+def compute_partition_function(molecule_name,isotopologue_number=1):
     '''                                                                                                                                       
     For a given input molecule name, isotope number, and temperature, return the partition function Q
                                                                                                                                               
@@ -132,8 +205,7 @@ def compute_partition_function(molecule_name,temp,isotopologue_number=1):
 #    if not os.path.exists(qfilename):  #download data from internet
        #get https://hitran.org/data/Q/qstr(G).txt
 
-    q=np.interp(temp,qdata['temp'],qdata['q'])
-    return q
+    return qdata
 
 
 #Make this its own function
