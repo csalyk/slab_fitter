@@ -127,7 +127,7 @@ def rot_mcmc(data, minwave= 4.648, maxwave=5.018,lognmin=20, lognmax=24, tmu=750
 
     run = sf_run(data, minwave, maxwave)
 
-    Nens = 500   # number of ensemble points    
+    Nens = 250   # number of ensemble points    
 
     lognini = np.random.uniform(lognmin, lognmax, Nens) # initial logn points                                                                  
     tini = np.random.normal(tmu, tsigma, Nens) # initial t points                                                                                         
@@ -135,8 +135,8 @@ def rot_mcmc(data, minwave= 4.648, maxwave=5.018,lognmin=20, lognmax=24, tmu=750
     inisamples = np.array([lognini, tini, logomegaini]).T 
 
     ndims = inisamples.shape[1] # number of parameters/dimensions                                    
-    Nburnin = 50   # number of burn-in samples                                                      
-    Nsamples = 100  # number of final posterior samples 
+    Nburnin = 30   # number of burn-in samples                                                      
+    Nsamples = 50  # number of final posterior samples 
     
     argslist = (run.lineflux, run.lineflux_err, run, lognmin, lognmax, tmu, tsigma, logomegamin, logomegamax)
                                                                        
