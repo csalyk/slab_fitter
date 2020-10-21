@@ -99,6 +99,17 @@ def compute_fluxes(myrun,logn,temp,omega):
 
     return lineflux
 
+# Defining get_qdata to interpolate for each emission line the partition function at temp
+def get_qdata(myrun, temp):
+    qdata = np.zeros(len(myrun.lineflux)) * np.nan
+
+    for i in np.arange(len(myrun.lineflux)):
+        qdata[i] = np.interp(temp, \
+                myrun.hitran_qdata[myrun.global_id[i]]['qdata']['temp'], \
+                myrun.hitran_qdata[myrun.global_id[i]]['qdata']['q'])
+
+    return qdata
+
 def compute_partition_function_co(temp,qdata,isotopologue_number=1):
     q=np.interp(temp,qdata['temp'],qdata['q'])  
     return q
