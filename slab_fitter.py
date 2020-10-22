@@ -2,7 +2,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.constants import c,h, k_B, G, M_sun, au, pc, u
 import pickle as pickle
-from .helpers import extract_hitran_data,line_ids_from_flux_calculator,line_ids_from_hitran,get_global_identifier,translate_molecule_identifier
+from helpers import extract_hitran_data,line_ids_from_flux_calculator,line_ids_from_hitran,get_global_identifier,translate_molecule_identifier
 import pdb as pdb
 from astropy.table import Table
 from astropy import units as un
@@ -76,7 +76,9 @@ class sf_run():
                           (self.qp[i] == hd['Qp']) & \
                           (self.vp[i] == hd['Vp']) & \
                           (self.vpp[i] == hd['Vpp'])
-            index = [j for j, x in enumerate(correctLine) if x][0]
+
+            index = [j for j, x in enumerate(correctLine) if x]
+
 
             h = hd[index]
             
@@ -176,7 +178,7 @@ def compute_partition_function_co(temp,qdata,isotopologue_number=1):
     q=np.interp(temp,qdata['temp'],qdata['q'])  
     return q
 
-def compute_partition_function(molecule_name,temp,isotopologue_number=1):
+def compute_partition_function(molecule_name,isotopologue_number=1):
     '''                                                                                                                                       
     For a given input molecule name, isotope number, and temperature, return the partition function Q
                                                                                                                                               
