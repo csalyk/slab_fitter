@@ -15,7 +15,7 @@ class sf_run():
     def __init__(self,data):
         
         #will want to modify following for isotopologues, other molecules.  probably its own function.
-        self.qdata=pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
+#        self.qdata=pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
 
         self.wn0=data['wn']*1e2 # now m-1
         self.aup=data['a']
@@ -78,7 +78,7 @@ def compute_fluxes(myrun,logn,temp,omega):
     elower=myrun.elower 
 
 #Compute partition function - will need to address isotopes/different molecules later
-    q=compute_partition_function_co(temp,myrun.qdata)
+    q=get_partition_function(myrun,temp)
 #Begin calculations                                                                                                       
     afactor=((aup*gup*n_col)/(q*8.*np.pi*(wn0)**3.)) #mks                                                                 
     efactor=h.value*c.value*eup/(k_B.value*temp)
@@ -118,8 +118,19 @@ def get_qdata(id_array):
         q_dict.update({str(myid):qdata['q']})
     return q_dict
 
-def compute_partition_function_co(temp,qdata,isotopologue_number=1):
-    q=np.interp(temp,qdata['temp'],qdata['q'])  
+#def compute_partition_function_co(temp,qdata,isotopologue_number=1):
+#    q=np.interp(temp,qdata['temp'],qdata['q'])  
+#    return q
+
+#Maybe there's a way to improve this?
+def get_partition_function(run,temp):
+    #Loop through each unique identifier
+    #For each unique identifier, assign q values accordingly
+    q=np.zeros(run.nlines)
+    for myunique_id in run.unique_globals:
+        myq=run.qdata_dict[str(myunique_id)][int(temp)-1]  #Look up appropriate q value
+        mybool=(run.global_id == myunique_id)              #Find where global identifier equals this one
+        q[mybool]=myq                                      #Assign q values where global identifier equals this one
     return q
 
 def compute_partition_function(molecule_name,temp,isotopologue_number=1):
