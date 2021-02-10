@@ -32,7 +32,9 @@ class sf_run():
         self.lineflux=data['lineflux']
         self.lineflux_err=data['lineflux_err']
         self.nlines = len(self.lineflux)
-        self.global_id=return_global_ids(self)
+        self.global_id=return_global_ids(self)  #Determine HITRAN global ids (molecule + isotope) for each line
+        self.unique_globals = np.unique(self.global_id)
+        self.qdata_dict=get_qdata(self.unique_globals)
 
 #------------------------------------------------------------------------------------                                     
 def get_hitran_from_flux_calculator(data,hitran_data):
@@ -107,6 +109,15 @@ def compute_fluxes(myrun,logn,temp,omega):
 
     return lineflux
 
+def get_qdata(id_array):
+    q_dict={}
+    for myid in id_array:
+        qurl='https://hitran.org/data/Q/'+'q'+str(myid)+'.txt'
+        handle = urllib.request.urlopen(qurl)
+        qdata = pd.read_csv(handle,sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
+        q_dict.update({str(myid):qdata['q']})
+    return q_dict
+
 def compute_partition_function_co(temp,qdata,isotopologue_number=1):
     q=np.interp(temp,qdata['temp'],qdata['q'])  
     return q
@@ -134,11 +145,6 @@ def compute_partition_function(molecule_name,temp,isotopologue_number=1):
     qurl='https://hitran.org/data/Q/'+'q'+str(G)+'.txt'
     handle = urllib.request.urlopen(qurl)
     qdata = pd.read_csv(handle,sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
-
-#May want to add code with local file access
-#    pathmod=os.path.dirname(__file__)
-#    if not os.path.exists(qfilename):  #download data from internet
-       #get https://hitran.org/data/Q/qstr(G).txt
 
     q=np.interp(temp,qdata['temp'],qdata['q'])
     return q

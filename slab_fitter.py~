@@ -31,12 +31,9 @@ class sf_run():
         self.vpp = data['Vpp_HITRAN']
         self.lineflux=data['lineflux']
         self.lineflux_err=data['lineflux_err']
-        num_line = len(self.lineflux)
+        self.nlines = len(self.lineflux)
+        self.global_id=return_global_ids(self)
 
-        self.global_id = np.array([get_global_identifier(translate_molecule_identifier(self.molec_id[i]), \
-                                    isotopologue_number=self.local_iso_id[i])\
-                                    for i in np.arange(num_line)])
-        pdb.set_trace()
 #------------------------------------------------------------------------------------                                     
 def get_hitran_from_flux_calculator(data,hitran_data):
 
@@ -172,3 +169,8 @@ def make_rotation_diagram(lineparams,modelfluxes=None):
         rot_table['modely']=np.log(modelfluxes/(lineparams['wn']*lineparams['gup']*lineparams['a']))
 
     return rot_table
+
+#---------------------
+def return_global_ids(self):
+    global_id = np.array([get_global_identifier(translate_molecule_identifier(self.molec_id[i]), isotopologue_number=self.local_iso_id[i]) for i in np.arange(self.nlines)])
+    return global_id
