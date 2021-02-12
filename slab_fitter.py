@@ -2,7 +2,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.constants import c,h, k_B, G, M_sun, au, pc, u
 import pickle as pickle
-from .helpers import extract_hitran_data,line_ids_from_flux_calculator,line_ids_from_hitran,get_global_identifier, translate_molecule_identifier
+from .helpers import extract_hitran_data,line_ids_from_flux_calculator,line_ids_from_hitran,get_global_identifier, translate_molecule_identifier, get_molmass
 import pdb as pdb
 from astropy.table import Table
 from astropy import units as un
@@ -14,9 +14,6 @@ from astropy.convolution import Gaussian1DKernel, convolve
 class sf_run():
     def __init__(self,data):
         
-        #will want to modify following for isotopologues, other molecules.  probably its own function.
-#        self.qdata=pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
-
         self.wn0=data['wn']*1e2 # now m-1
         self.aup=data['a']
         self.eup=(data['elower']+data['wn'])*1e2 #now m-1
@@ -33,27 +30,27 @@ class sf_run():
         self.lineflux_err=data['lineflux_err']
         self.nlines = len(self.lineflux)
         self.global_id=return_global_ids(self)  #Determine HITRAN global ids (molecule + isotope) for each line
+        self.molmass=return_molmasses(self)  #Get molecular mass
         self.unique_globals = np.unique(self.global_id)
         self.qdata_dict=get_qdata(self.unique_globals)
-
 #------------------------------------------------------------------------------------                                     
-def get_hitran_from_flux_calculator(data,hitran_data):
+#def get_hitran_from_flux_calculator(data,hitran_data):
 
     #Define line_id_dictionary using hitran_data
-    line_id_dict={}
-    for i,myrow in enumerate(hitran_data):
-        line_id_key=(str(myrow['molec_id'])+str(myrow['local_iso_id']) + str(myrow['Vp'])+str(myrow['Vpp'])+ str(myrow['Qp'])+str(myrow['Qpp'])).replace(" ","")
-        line_id_dict[line_id_key]=i
+#    line_id_dict={}
+#    for i,myrow in enumerate(hitran_data):
+#        line_id_key=(str(myrow['molec_id'])+str(myrow['local_iso_id']) + str(myrow['Vp'])+str(myrow['Vpp'])+ str(myrow['Qp'])+str(myrow['Qpp'])).replace(" ","")
+#        line_id_dict[line_id_key]=i
 
     #Get a set of line_ids using hitran_data and actual data
-    line_ids=line_ids_from_flux_calculator(data, line_id_dict)
+#    line_ids=line_ids_from_flux_calculator(data, line_id_dict)
 
     #Get appropriate partition function data (will need to fix to account for isotopologues, possibly different molecules)
-    qdata = pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
+#    qdata = pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
+#
+#    hitran_dict={'qdata':qdata,'line_ids':line_ids,'hitran_data':hitran_data}
 
-    hitran_dict={'qdata':qdata,'line_ids':line_ids,'hitran_data':hitran_data}
-
-    return hitran_dict
+#    return hitran_dict
 
 #------------------------------------------------------------------------------------                                     
 def compute_fluxes(myrun,logn,temp,omega):
@@ -61,12 +58,12 @@ def compute_fluxes(myrun,logn,temp,omega):
     Compute line fluxes for a slab model with given column density, temperature, and solid angle=area/d^2 
     '''
     n_col=10**logn
-    isot=1   #Will need to fix later
     si2jy=1e26   #SI to Jy flux conversion factor
 
 #If local velocity field is not given, assume sigma given by thermal velocity
-#Will eventually need to account for isotopologues
-    mu=u.value*28.01  #12CO
+
+    mu=u.value*myrun.molmass
+#    mu=u.value*28.01  #12CO
     deltav=np.sqrt(k_B.value*temp/mu)   #m/s 
 
 #Use line_ids to extract relevant HITRAN data
@@ -77,7 +74,7 @@ def compute_fluxes(myrun,logn,temp,omega):
     eup_k=myrun.eup_k
     elower=myrun.elower 
 
-#Compute partition function - will need to address isotopes/different molecules later
+#Compute partition function
     q=get_partition_function(myrun,temp)
 #Begin calculations                                                                                                       
     afactor=((aup*gup*n_col)/(q*8.*np.pi*(wn0)**3.)) #mks                                                                 
@@ -95,7 +92,8 @@ def compute_fluxes(myrun,logn,temp,omega):
     vel=(dvel*(np.arange(0,nvel)-500.0))*1.e3     #now in m/s   
 
 #Now loop over transitions and velocities to calculate flux
-    tau=np.exp(-vel**2./(2.*deltav**2.))*np.vstack(tau0)
+#    tau=np.exp(-vel**2./(2.*deltav**2.))*np.vstack(tau0)
+    tau=np.exp(-vel**2./(2.*np.vstack(deltav)**2.))*np.vstack(tau0)
 
 #Create array to hold line fluxes (one flux value per line)
     nlines=np.size(tau0)
@@ -118,10 +116,6 @@ def get_qdata(id_array):
         q_dict.update({str(myid):qdata['q']})
     return q_dict
 
-#def compute_partition_function_co(temp,qdata,isotopologue_number=1):
-#    q=np.interp(temp,qdata['temp'],qdata['q'])  
-#    return q
-
 #Maybe there's a way to improve this?
 def get_partition_function(run,temp):
     #Loop through each unique identifier
@@ -133,35 +127,6 @@ def get_partition_function(run,temp):
         q[mybool]=myq                                      #Assign q values where global identifier equals this one
     return q
 
-def compute_partition_function(molecule_name,temp,isotopologue_number=1):
-    '''                                                                                                                                       
-    For a given input molecule name, isotope number, and temperature, return the partition function Q
-                                                                                                                                              
-    Parameters                                                                                                                                
-    ----------                                                                                                                                
-    molecule_name : string
-        The molecule name string (e.g., 'CO', 'H2O')
-    temp : float
-        The temperature at which to compute the partition function
-    isotopologue_number : float, optional
-        Isotopologue number, with 1 being most common, etc. Defaults to 1.
-
-    Returns                                                                                                                                   
-    -------                                                                                                                                   
-    q : float
-      The partition function
-    '''
-
-    G=get_global_identifier(molecule_name, isotopologue_number=isotopologue_number)
-    qurl='https://hitran.org/data/Q/'+'q'+str(G)+'.txt'
-    handle = urllib.request.urlopen(qurl)
-    qdata = pd.read_csv(handle,sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
-
-    q=np.interp(temp,qdata['temp'],qdata['q'])
-    return q
-
-
-#Make this its own function
 def make_rotation_diagram(lineparams,modelfluxes=None):
     '''
     Take ouput of make_spec and use it to compute rotation diagram parameters.
@@ -188,6 +153,13 @@ def make_rotation_diagram(lineparams,modelfluxes=None):
     return rot_table
 
 #---------------------
+#Returns HITRAN global IDs for all lines
 def return_global_ids(self):
     global_id = np.array([get_global_identifier(translate_molecule_identifier(self.molec_id[i]), isotopologue_number=self.local_iso_id[i]) for i in np.arange(self.nlines)])
     return global_id
+
+#---------------------
+#Returns HITRAN molecular masses for all lines
+def return_molmasses(self):
+    molmass_arr = np.array([get_molmass(translate_molecule_identifier(self.molec_id[i]), isotopologue_number=self.local_iso_id[i]) for i in np.arange(self.nlines)])
+    return molmass_arr
