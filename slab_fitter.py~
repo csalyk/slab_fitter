@@ -34,23 +34,23 @@ class sf_run():
         self.unique_globals = np.unique(self.global_id)
         self.qdata_dict=get_qdata(self.unique_globals)
 #------------------------------------------------------------------------------------                                     
-def get_hitran_from_flux_calculator(data,hitran_data):
+#def get_hitran_from_flux_calculator(data,hitran_data):
 
     #Define line_id_dictionary using hitran_data
-    line_id_dict={}
-    for i,myrow in enumerate(hitran_data):
-        line_id_key=(str(myrow['molec_id'])+str(myrow['local_iso_id']) + str(myrow['Vp'])+str(myrow['Vpp'])+ str(myrow['Qp'])+str(myrow['Qpp'])).replace(" ","")
-        line_id_dict[line_id_key]=i
+#    line_id_dict={}
+#    for i,myrow in enumerate(hitran_data):
+#        line_id_key=(str(myrow['molec_id'])+str(myrow['local_iso_id']) + str(myrow['Vp'])+str(myrow['Vpp'])+ str(myrow['Qp'])+str(myrow['Qpp'])).replace(" ","")
+#        line_id_dict[line_id_key]=i
 
     #Get a set of line_ids using hitran_data and actual data
-    line_ids=line_ids_from_flux_calculator(data, line_id_dict)
+#    line_ids=line_ids_from_flux_calculator(data, line_id_dict)
 
     #Get appropriate partition function data (will need to fix to account for isotopologues, possibly different molecules)
-    qdata = pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
+#    qdata = pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
+#
+#    hitran_dict={'qdata':qdata,'line_ids':line_ids,'hitran_data':hitran_data}
 
-    hitran_dict={'qdata':qdata,'line_ids':line_ids,'hitran_data':hitran_data}
-
-    return hitran_dict
+#    return hitran_dict
 
 #------------------------------------------------------------------------------------                                     
 def compute_fluxes(myrun,logn,temp,omega):
@@ -125,33 +125,6 @@ def get_partition_function(run,temp):
         myq=run.qdata_dict[str(myunique_id)][int(temp)-1]  #Look up appropriate q value
         mybool=(run.global_id == myunique_id)              #Find where global identifier equals this one
         q[mybool]=myq                                      #Assign q values where global identifier equals this one
-    return q
-
-def compute_partition_function(molecule_name,temp,isotopologue_number=1):
-    '''                                                                                                                                       
-    For a given input molecule name, isotope number, and temperature, return the partition function Q
-                                                                                                                                              
-    Parameters                                                                                                                                
-    ----------                                                                                                                                
-    molecule_name : string
-        The molecule name string (e.g., 'CO', 'H2O')
-    temp : float
-        The temperature at which to compute the partition function
-    isotopologue_number : float, optional
-        Isotopologue number, with 1 being most common, etc. Defaults to 1.
-
-    Returns                                                                                                                                   
-    -------                                                                                                                                   
-    q : float
-      The partition function
-    '''
-
-    G=get_global_identifier(molecule_name, isotopologue_number=isotopologue_number)
-    qurl='https://hitran.org/data/Q/'+'q'+str(G)+'.txt'
-    handle = urllib.request.urlopen(qurl)
-    qdata = pd.read_csv(handle,sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
-
-    q=np.interp(temp,qdata['temp'],qdata['q'])
     return q
 
 def make_rotation_diagram(lineparams,modelfluxes=None):

@@ -34,23 +34,23 @@ class sf_run():
         self.unique_globals = np.unique(self.global_id)
         self.qdata_dict=get_qdata(self.unique_globals)
 #------------------------------------------------------------------------------------                                     
-#def get_hitran_from_flux_calculator(data,hitran_data):
+def get_hitran_from_flux_calculator(data,hitran_data):
 
     #Define line_id_dictionary using hitran_data
-#    line_id_dict={}
-#    for i,myrow in enumerate(hitran_data):
-#        line_id_key=(str(myrow['molec_id'])+str(myrow['local_iso_id']) + str(myrow['Vp'])+str(myrow['Vpp'])+ str(myrow['Qp'])+str(myrow['Qpp'])).replace(" ","")
-#        line_id_dict[line_id_key]=i
+    line_id_dict={}
+    for i,myrow in enumerate(hitran_data):
+        line_id_key=(str(myrow['molec_id'])+str(myrow['local_iso_id']) + str(myrow['Vp'])+str(myrow['Vpp'])+ str(myrow['Qp'])+str(myrow['Qpp'])).replace(" ","")
+        line_id_dict[line_id_key]=i
 
     #Get a set of line_ids using hitran_data and actual data
-#    line_ids=line_ids_from_flux_calculator(data, line_id_dict)
+    line_ids=line_ids_from_flux_calculator(data, line_id_dict)
 
     #Get appropriate partition function data (will need to fix to account for isotopologues, possibly different molecules)
-#    qdata = pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
-#
-#    hitran_dict={'qdata':qdata,'line_ids':line_ids,'hitran_data':hitran_data}
+    qdata = pd.read_csv('https://hitran.org/data/Q/q26.txt',sep=' ',skipinitialspace=True,names=['temp','q'],header=None)
 
-#    return hitran_dict
+    hitran_dict={'qdata':qdata,'line_ids':line_ids,'hitran_data':hitran_data}
+
+    return hitran_dict
 
 #------------------------------------------------------------------------------------                                     
 def compute_fluxes(myrun,logn,temp,omega):
