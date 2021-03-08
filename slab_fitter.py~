@@ -58,6 +58,7 @@ class Retrieval():
         samples = sampler.chain[:, Nburnin:, :].reshape((-1, ndims))
 
         return samples
+        
 
     def _lnprior(self, theta):
         lp = 0.  #initialize log prior
@@ -204,9 +205,8 @@ class LineData():
         x=self.eup_k
 #        y=np.log(lineparams['lineflux']/(lineparams['wn']*lineparams['gup']*lineparams['a']))
         y=np.log(self.lineflux/(self.wn0*self.gup*self.aup))  #All mks, so wn in m^-1
-        if(units=='cgs'):
-            y=np.log(1000.*self.lineflux/((self.wn0*1e-2)*self.gup*self.aup))
-        rot_dict={'x':x,'y':y,'units':units}
+
+        rot_dict={'x':x,'y':y}
 
         return rot_dict
 #------------------------------------------------------------------------------------                                     

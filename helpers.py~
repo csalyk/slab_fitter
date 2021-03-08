@@ -6,24 +6,6 @@ from molmass import Formula
 import pdb as pdb
 import pickle as pickle
 
-def calc_solid_angle(radius,distance):
-    '''
-    Convenience function to calculate solid angle from radius and distance, assuming a disk shape.
-    (For more complex shapes, user can calculate themselves).
-
-    Parameters
-    ----------
-    radius : float
-     radius value in AU
-    distance : float
-     distance value in parsec
-    Returns
-    ----------
-    
-    '''
-    return np.pi*radius**2./(distance*206265.)**2.
-
-
 def line_ids_from_flux_calculator(flux_calculator_output, line_id_dict):
     line_id_list=[]
     for i,myrow in enumerate(flux_calculator_output):
