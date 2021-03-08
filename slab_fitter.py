@@ -205,8 +205,9 @@ class LineData():
         x=self.eup_k
 #        y=np.log(lineparams['lineflux']/(lineparams['wn']*lineparams['gup']*lineparams['a']))
         y=np.log(self.lineflux/(self.wn0*self.gup*self.aup))  #All mks, so wn in m^-1
-
-        rot_dict={'x':x,'y':y}
+        if(units=='cgs'):
+            y=np.log(1000.*self.lineflux/((self.wn0*1e-2)*self.gup*self.aup))
+        rot_dict={'x':x,'y':y,'units':units}
 
         return rot_dict
 #------------------------------------------------------------------------------------                                     
