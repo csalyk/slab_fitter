@@ -92,7 +92,6 @@ class Retrieval():
             return -np.inf
 
         return lp + self._lnlikelihood(theta)
->>>>>>> develop
 
     def _compute_fluxes(self,theta):
         logn, temp, logomega = theta    #unpack parameters
