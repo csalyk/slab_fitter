@@ -1,0 +1,11 @@
+{
+"tmin": 100,
+"tmax": 2000,
+"lognmin": 18,
+"lognmax": 24,
+"logomegamin": -21,
+"logomegamax": -12,
+"Nwalkers": 20,
+"Nburnin": 200,
+"Nsamples": 3000
+}
