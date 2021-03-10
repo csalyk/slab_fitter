@@ -14,9 +14,6 @@ from astropy.convolution import Gaussian1DKernel, convolve
 import json as json
 import time
 
-
-
-
 class Config():
     '''
     Class for handling input parameters
@@ -118,7 +115,7 @@ class Retrieval():
 
 #Compute partition function
         q=self._get_partition_function(temp)
-#Begin calculations                                                                                                       
+#Begin calculations
         afactor=((aup*gup*n_col)/(q*8.*np.pi*(wn0)**3.)) #mks                                                                 
         efactor=h.value*c.value*eup/(k_B.value*temp)
         wnfactor=h.value*c.value*wn0/(k_B.value*temp)
@@ -201,40 +198,48 @@ class LineData():
         return q_dict
 
 #------------------------------------------------------------------------------------                                     
-    def rot_diagram(self,units='mks'):
+    def rot_diagram(self,units='mks',modelfluxes=None):
         x=self.eup_k
-#        y=np.log(lineparams['lineflux']/(lineparams['wn']*lineparams['gup']*lineparams['a']))
-        y=np.log(self.lineflux/(self.wn0*self.gup*self.aup))  #All mks, so wn in m^-1
+        mywn0=self.wn0
+        y=np.log(self.lineflux/(mywn0*self.gup*self.aup))  #All mks, so wn in m^-1
         if(units=='cgs'):
             y=np.log(1000.*self.lineflux/((self.wn0*1e-2)*self.gup*self.aup))
+        if(units=='mixed'):
+            y=np.log(self.lineflux/((self.wn0*1e-2)*self.gup*self.aup))
         rot_dict={'x':x,'y':y,'units':units}
+        if(modelfluxes is not None):
+            rot_dict['modely']=np.log(modelfluxes/(mywn0*self.gup*self.aup))  #All mks, so wn in m^-1
+            if(units=='cgs'):
+                rot_dict['modely']=np.log(modelfluxes*1000./(self.wn0*1e-2*self.gup*self.aup))  #All cgs
+            if(units=='mixed'):
+                rot_dict['modely']=np.log(modelfluxes/(self.wn0*1e-2*self.gup*self.aup))  #All cgs
 
         return rot_dict
 #------------------------------------------------------------------------------------                                     
-def make_rotation_diagram(lineparams,modelfluxes=None):
-    '''
-    Take ouput of make_spec and use it to compute rotation diagram parameters.
-
-    Parameters
-    ---------
-    lineparams: dictionary
-        dictionary output from make_spec
-
-    Returns
-    --------
-    rot_table: astropy Table
-        Table of x and y values for rotation diagram.  
-
-    '''
-    x=lineparams['eup_k']
-    y=np.log(lineparams['lineflux']/(lineparams['wn']*lineparams['gup']*lineparams['a']))
-    rot_table = Table([x, y], names=('x', 'y'),  dtype=('f8', 'f8'))
-    rot_table['x'].unit = 'K'        
-
-    if(modelfluxes is not None):
-        rot_table['modely']=np.log(modelfluxes/(lineparams['wn']*lineparams['gup']*lineparams['a']))
-
-    return rot_table
+#def make_rotation_diagram(lineparams,modelfluxes=None):
+#    '''
+#    Take ouput of make_spec and use it to compute rotation diagram parameters.
+#
+#    Parameters
+#    ---------
+#    lineparams: dictionary
+#        dictionary output from make_spec
+#
+#    Returns
+#    --------
+#    rot_table: astropy Table
+#        Table of x and y values for rotation diagram.  
+#
+#    '''
+#    x=lineparams['eup_k']
+#    y=np.log(lineparams['lineflux']/(lineparams['wn']*lineparams['gup']*lineparams['a']))
+#    rot_table = Table([x, y], names=('x', 'y'),  dtype=('f8', 'f8'))
+#    rot_table['x'].unit = 'K'        
+#
+#    if(modelfluxes is not None):
+#        rot_table['modely']=np.log(modelfluxes/(lineparams['wn']*lineparams['gup']*lineparams['a']))
+#
+#    return rot_table
 #---------------------
 #def get_hitran_from_flux_calculator(data,hitran_data):
 
