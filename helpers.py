@@ -23,6 +23,23 @@ def calc_solid_angle(radius,distance):
     '''
     return np.pi*radius**2./(distance*206265.)**2.
 
+def calc_radius(solid_angle,distance):
+    '''
+    Convenience function to calculate solid angle from radius and distance, assuming a disk shape.
+    (For more complex shapes, user can calculate themselves).
+
+    Parameters
+    ----------
+    solid_angle : float
+     solid angle value in radians
+    distance : float
+     distance value in parsec
+    Returns
+    ----------
+    
+    '''
+    return (distance*206265)*np.sqrt(solid_angle/np.pi)
+
 
 def line_ids_from_flux_calculator(flux_calculator_output, line_id_dict):
     line_id_list=[]
@@ -147,7 +164,7 @@ def wn_to_k(wn):
     '''              
     return wn.si*h*c/k_B
 
-def extract_hitran_data(molecule_name, wavemin, wavemax, isotopologue_number=1, eupmax=None, aupmin=None,swmin=None):
+def extract_hitran_data(molecule_name, wavemin, wavemax, isotopologue_number=1, eupmax=None, aupmin=None,swmin=None,vup=None):
     '''                                                               
     Extract data from HITRAN 
     Primarily makes use of astroquery.hitran, with some added functionality specific to common IR spectral applications
@@ -197,6 +214,7 @@ def extract_hitran_data(molecule_name, wavemin, wavemax, isotopologue_number=1, 
     ebool = np.full(np.size(tbl), True, dtype=bool)  #default to True
     abool = np.full(np.size(tbl), True, dtype=bool)  #default to True
     swbool = np.full(np.size(tbl), True, dtype=bool)  #default to True
+    vupbool = np.full(np.size(tbl), True, dtype=bool)  #default to True
     #Upper level energy
     if(eupmax is not None):
         ebool = tbl['eup_k'] < eupmax
@@ -206,8 +224,12 @@ def extract_hitran_data(molecule_name, wavemin, wavemax, isotopologue_number=1, 
     #Line strength
     if(swmin is not None):
         swbool = tbl['sw'] > swmin
+    if(vup is not None):
+        vupval = [np.int(val) for val in tbl['Vp']]
+        vupbool=(np.array(vupval)==vup)
+
      #Combine
-    extractbool = (abool & ebool & swbool)
+    extractbool = (abool & ebool & swbool & vupbool)
     hitran_data=tbl[extractbool]
 
     #Return astropy table
