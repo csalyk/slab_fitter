@@ -2,7 +2,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.constants import c,h, k_B, G, M_sun, au, pc, u
 import pickle as pickle
-from .helpers import extract_hitran_data,line_ids_from_flux_calculator,line_ids_from_hitran,get_global_identifier, translate_molecule_identifier, get_molmass
+from .helpers import extract_hitran_data,line_ids_from_flux_calculator,line_ids_from_hitran,get_global_identifier, translate_molecule_identifier, get_molmass, get_molecule_identifier
 import pdb as pdb
 from astropy.table import Table
 from astropy import units as un
@@ -13,6 +13,49 @@ import pandas as pd
 from astropy.convolution import Gaussian1DKernel, convolve
 import json as json
 import time
+import pandas as pd
+
+def read_data_from_file(filename,vup=None,**kwargs):
+    data=pd.read_csv(filename,sep=r"\s+")
+    data['local_iso_id'] = data.pop('iso')
+    data['molec_id']=data['molec'].apply(get_molecule_identifier)
+    data['lineflux_err']=data.pop('error')
+
+
+    if not ('a' in data and 'gup' in data and 'elower' in data):
+        wavemin=1e4/(np.max(data['wn'])+2)
+        wavemax=1e4/(np.min(data['wn'])-2)
+        if(not ('a' in data)):  
+            nota=True
+            data['a']=np.zeros(np.shape(data)[0])
+        else: nota=False
+
+        if(not ('gup' in data)):  
+            notgup=True
+            data['gup']=np.zeros(np.shape(data)[0])
+        else: notgup=False
+
+        if(not ('elower' in data)):  
+            notelower=True            
+            data['elower']=np.zeros(np.shape(data)[0])
+        else: notelower=False
+
+        mol_iso_id=data['molec_id'].astype(str)+'_'+data['local_iso_id'].astype(str)
+        unique_ids,unique_indices=np.unique(mol_iso_id,return_index=True)
+        for i,myunique_id in enumerate(unique_ids):
+            hitran_data=extract_hitran_data(data['molec'][unique_indices[i]], wavemin, wavemax, isotopologue_number=data['local_iso_id'][unique_indices[i]],vup=vup,**kwargs)
+            loc=np.where(mol_iso_id==myunique_id)[0]
+
+            for myloc in loc:
+                pos=np.argmin(np.abs(hitran_data['wn']-data['wn'][myloc]))
+                if(nota):  data.at[myloc,'a']=hitran_data['a'][pos]
+                if(notgup):  data.at[myloc,'gup']=hitran_data['gp'][pos]
+                if(notelower):  data.at[myloc,'elower']=hitran_data['elower'][pos]
+
+    data['eup_k']=(data['elower']+data['wn'])*1e2*h*c/k_B
+
+    data.drop('molec',axis=1)
+    return data
 
 class Config():
     '''
@@ -24,6 +67,10 @@ class Config():
 
     def getpar(self,name):
         return self.config[name]
+
+    def display(self):
+ 
+        print(json.dumps(self.config, indent=1))
 
 class Retrieval():
     '''
@@ -81,7 +128,6 @@ class Retrieval():
         md = self._compute_fluxes(theta)
         data=self.LineData.lineflux
         sigma=self.LineData.lineflux_err
-
         lnlike = -0.5*np.sum(((md - data)/sigma)**2)
         
         return lnlike
@@ -165,10 +211,10 @@ class LineData():
         self.elower=data['elower']
         self.molec_id=data['molec_id']
         self.local_iso_id=data['local_iso_id']
-        self.qpp = data['Qpp_HITRAN']
-        self.qp = data['Qp_HITRAN']
-        self.vp = data['Vp_HITRAN'] 
-        self.vpp = data['Vpp_HITRAN']
+#        self.qpp = data['Qpp_HITRAN']
+#        self.qp = data['Qp_HITRAN']
+#        self.vp = data['Vp_HITRAN'] 
+#        self.vpp = data['Vpp_HITRAN']
         self.lineflux=data['lineflux']
         self.lineflux_err=data['lineflux_err']
         self.nlines = len(self.lineflux)
