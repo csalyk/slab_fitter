@@ -74,15 +74,17 @@ def _get_partition_function(mydata,temp):
         q[mybool]=myq
     return q
 
-def remove_burnin(presamples):
+def remove_burnin(presamples,burnin):
     postsamples=presamples[burnin:]
     return postsamples
 
-def corner_plot(samples):
+def corner_plot(samples,outfile=None,**kwargs):
     parlabels=[ r"$\log(\ n_\mathrm{tot} [\mathrm{cm}^{-2}]\ )$",r"Temperature [K]", "$\log(\ {\Omega [\mathrm{rad}]}\ )$"]
     fig = corner.corner(samples,
                     labels=parlabels,
-                    show_titles=True, title_kwargs={"fontsize": 12})
+                    show_titles=True, title_kwargs={"fontsize": 12},**kwargs)
+    if(outfile is not None):
+        fig.savefig(outfile)
 
 def trace_plot(samples,xr=[None,None]):
     fig, axes = plt.subplots(3, figsize=(10, 7), sharex=True)
