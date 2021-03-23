@@ -14,6 +14,7 @@ from astropy.convolution import Gaussian1DKernel, convolve
 import json as json
 import time
 import pandas as pd
+import pkgutil
 
 def read_data_from_file(filename,vup=None,**kwargs):
     data=pd.read_csv(filename,sep=r"\s+")
@@ -61,9 +62,13 @@ class Config():
     '''
     Class for handling input parameters
     '''
-    def __init__(self,config_file='/Users/cosalyk/mypy/slab_fitter/config.json'):
-        with open(config_file, 'r') as file:
-            self.config = json.load(file)
+    def __init__(self,config_file=None):
+        if(config_file is None):
+            config_data=pkgutil.get_data(__name__,'config.json')
+            self.config=json.loads(config_data)
+        if(config_file is not None):
+            with open(config_file, 'r') as file:
+                self.config = json.load(file)
 
     def getpar(self,name):
         return self.config[name]
